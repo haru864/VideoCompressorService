@@ -5,10 +5,19 @@ import json
 import os
 
 
+BUFFER_SIZE: int = 1024
+
+
 async def handle_client(client, loop) -> None:
-    while data := await loop.sock_recv(client, 1024):
-        print(f"data = {data}")
-        await loop.sock_sendall(client, data)
+    video_path: str = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "tmp/before_process/output_video.mp4",
+    )
+    with open(video_path, "wb") as video_file:
+        while data := await loop.sock_recv(client, BUFFER_SIZE):
+            if not data:
+                break
+            video_file.write(data)
     client.close()
 
 
