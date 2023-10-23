@@ -1,0 +1,5 @@
+{
+    "address": "0.0.0.0",
+    "port": 9001,
+    "client_connection_time_out": 120
+}
