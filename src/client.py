@@ -20,6 +20,25 @@ compress_level_to_bitrate_multiplier: dict[str, int] = {
 }
 
 
+def receive_status(sock: socket.socket) -> dict[str, Any]:
+    length_data: bytes = sock.recv(PREFIX_LENGTH)
+    (response_data_length,) = struct.unpack("!I", length_data)
+    response_data: bytes = sock.recv(response_data_length)
+    response_data_json: dict[str, int] = json.loads(response_data.decode())
+    return response_data_json
+
+
+def recvall(sock, length) -> bytes:
+    # print(f"length -> {length}")
+    data = b""
+    while len(data) < length:
+        more = sock.recv(length - len(data))
+        if not more:
+            raise Exception("接続が中断されました。")
+        data += more
+    return data
+
+
 def main() -> None:
     # server_address: str = input("server address: ")
     server_address: str = "127.0.0.1"
@@ -76,41 +95,50 @@ def main() -> None:
     data_length_prefix: bytes = struct.pack("!I", len(data))
     tcp_client.sendall(data_length_prefix + data)
 
-    length_data: bytes = tcp_client.recv(PREFIX_LENGTH)
-    (response_data_length,) = struct.unpack("!I", length_data)
-    response_data: bytes = tcp_client.recv(response_data_length)
-    response_data_json: dict[str, int] = json.loads(response_data.decode())
-    print(response_data_json)
-
+    response_data_json: dict[str, int] = receive_status(tcp_client)
+    print(f"operation check result -> {response_data_json}")
     if response_data_json["status"] == 1:
         print(response_data_json.get("error"))
         tcp_client.close()
         return None
 
+    # TODO ファイルパスはユーザーが入力できるようにする
     # video_file_path: str = input("video file path: ")
+    # output_dir_path: str = input("output path: ")
     video_file_path: str = (
         "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
+    )
+    output_file_path: str = (
+        "/home/haru/project/Recursion/VideoCompressorService/test/output/sample.mp4"
     )
     video_file_name: str = os.path.basename(video_file_path)
     video_file_name_data: bytes = video_file_name.encode()
     data_length_prefix: bytes = struct.pack("!I", len(video_file_name_data))
     tcp_client.sendall(data_length_prefix + video_file_name_data)
 
-    count = 0
     with open(video_file_path, "rb") as video_file:
         while bytes_read := video_file.read(BUFFER_SIZE):
             length = len(bytes_read)
             tcp_client.sendall(struct.pack("!I", length))
             tcp_client.sendall(bytes_read)
-            count += length
     data_length_prefix: bytes = struct.pack("!I", 0)
     tcp_client.sendall(data_length_prefix)
-    print(count)
 
-    length_data: bytes = tcp_client.recv(PREFIX_LENGTH)
-    (response_data_length,) = struct.unpack("!I", length_data)
-    response_data: bytes = tcp_client.recv(response_data_length)
-    print(response_data.decode())
+    response_data_json: dict[str, int] = receive_status(tcp_client)
+    print(f"processing video result -> {response_data_json}")
+    if response_data_json["status"] == 1:
+        print(response_data_json.get("error"))
+        tcp_client.close()
+        return None
+
+    with open(output_file_path, "wb") as video_file:
+        while True:
+            raw_length = recvall(tcp_client, PREFIX_LENGTH)
+            length = struct.unpack("!I", raw_length)[0]
+            if length == 0:
+                break
+            data = recvall(tcp_client, length)
+            video_file.write(data)
 
     tcp_client.close()
 
