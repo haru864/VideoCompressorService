@@ -3,6 +3,7 @@ import struct
 from typing import Any
 import socket
 import json
+import ffmpeg
 
 BUFFER_SIZE: int = 1024
 PREFIX_LENGTH: int = 4
@@ -28,8 +29,7 @@ def receive_status(sock: socket.socket) -> dict[str, Any]:
     return response_data_json
 
 
-def recvall(sock, length) -> bytes:
-    # print(f"length -> {length}")
+def recvall(sock: socket.socket, length: int) -> bytes:
     data = b""
     while len(data) < length:
         more = sock.recv(length - len(data))
@@ -37,6 +37,16 @@ def recvall(sock, length) -> bytes:
             raise Exception("接続が中断されました。")
         data += more
     return data
+
+
+def displayResolution(video_file_path: str):
+    probe: dict[Any, Any] = ffmpeg.probe(video_file_path)
+    video_info = next(s for s in probe["streams"] if s["codec_type"] == "video")
+    width: int = video_info["width"]
+    height: int = video_info["height"]
+    print("Video Resolution")
+    print(f" width: {width}")
+    print(f" height: {height}")
 
 
 def main() -> None:
@@ -53,6 +63,16 @@ def main() -> None:
     print(f"Connecting to ({server_address}, {server_port})")
     tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_client.connect((server_address, server_port))
+
+    # TODO ファイルパスはユーザーが入力できるようにする
+    # video_file_path: str = input("video file path: ")
+    # output_dir_path: str = input("output path: ")
+    video_file_path: str = (
+        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
+    )
+    output_file_path: str = (
+        "/home/haru/project/Recursion/VideoCompressorService/test/output/sample.mp4"
+    )
 
     request_data: dict[str, Any] = {}
     print("Choose the operation number.")
@@ -89,7 +109,25 @@ def main() -> None:
                 break
             except Exception:
                 print("Please enter compress level")
+    elif request_data["operation"] == "change_resolution":
+        displayResolution(video_file_path)
+        while True:
+            try:
+                new_width: int = int(input("new width: "))
+                new_height: int = int(input("new height: "))
+                if new_width <= 0 or new_height <= 0:
+                    raise Exception("Width or height must be positive number")
+                break
+            except Exception as e:
+                print(e)
+        request_data["width"] = new_width
+        request_data["height"] = new_height
+    else:
+        print("unimplemented operation")
+        tcp_client.close()
+        return
 
+    print(request_data)
     json_str: str = json.dumps(request_data)
     data: bytes = json_str.encode()
     data_length_prefix: bytes = struct.pack("!I", len(data))
@@ -102,15 +140,6 @@ def main() -> None:
         tcp_client.close()
         return None
 
-    # TODO ファイルパスはユーザーが入力できるようにする
-    # video_file_path: str = input("video file path: ")
-    # output_dir_path: str = input("output path: ")
-    video_file_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
-    )
-    output_file_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/output/sample.mp4"
-    )
     video_file_name: str = os.path.basename(video_file_path)
     video_file_name_data: bytes = video_file_name.encode()
     data_length_prefix: bytes = struct.pack("!I", len(video_file_name_data))

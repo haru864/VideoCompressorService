@@ -10,18 +10,17 @@ PREFIX_LENGTH: int = 4
 
 
 def recvall(sock, length) -> bytes:
-    # print(f"length -> {length}")
+    print(f"length -> {length}")
     data = b""
     while len(data) < length:
         more = sock.recv(length - len(data))
-        print(f"received {len(more)} bytes")
         if not more:
             raise Exception("接続が中断されました。")
         data += more
     return data
 
 
-def send_status(sock, error_msg: str | None = None):
+def send_status(sock, error_msg: str | None = None) -> None:
     if error_msg is None:
         response_str: str = json.dumps({"status": 0})
     else:
@@ -31,21 +30,45 @@ def send_status(sock, error_msg: str | None = None):
     sock.sendall(data_length_prefix + data)
 
 
+def compress_video(
+    input_video_file: str, output_video_file: str, compress_leverage: float
+) -> None:
+    probe: dict[Any, Any] = ffmpeg.probe(input_video_file)
+    video_info = next(s for s in probe["streams"] if s["codec_type"] == "video")
+    default_bitrate: int = int(video_info["bit_rate"])
+    compressed_bitrate: int = int(default_bitrate * compress_leverage)
+    stream = ffmpeg.input(input_video_file).output(
+        output_video_file, video_bitrate=compressed_bitrate
+    )
+    ffmpeg.run(stream, overwrite_output=True)
+
+
+def change_video_resolution(
+    input_video: str, output_video: str, new_width: int, new_height: int
+):
+    stream = (
+        ffmpeg.input(input_video)
+        .filter("scale", new_width, new_height)
+        .output(output_video)
+    )
+    ffmpeg.run(stream, overwrite_output=True)
+
+
 def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
     data = client_socket.recv(length)
+    print(data.decode())
     json_data = json.loads(data.decode())
     print(json_data)
 
     try:
         requested_operation: str = json_data["operation"]
         if requested_operation == "compress":
-            compress_level: float = json_data["compress_level"]
-            if compress_level not in (0.5, 0.7, 0.9):
-                raise Exception("Invalid compress level")
-        else:
-            raise Exception("Invalid operation")
+            compress_leverage: float = json_data["compress_leverage"]
+        elif requested_operation == "change_resolution":
+            new_width: float = json_data["width"]
+            new_height: float = json_data["height"]
         send_status(client_socket)
     except Exception as e:
         print(e)
@@ -75,18 +98,12 @@ def handle_client(client_socket: socket.socket) -> None:
             video_file.write(data)
 
     try:
-        probe: dict[Any, Any] = ffmpeg.probe(video_path_bef_proc)
-        print(probe)
-        video_info = next(s for s in probe["streams"] if s["codec_type"] == "video")
-        default_bitrate_str: str = video_info["bit_rate"]
-        default_bitrate: int = int(default_bitrate_str)
-        compressed_bitrate: int = int(default_bitrate * compress_level)
-        print(f"default_bitrate -> {default_bitrate}")
-        print(f"compressed_bitrate -> {compressed_bitrate}")
-        stream = ffmpeg.input(video_path_bef_proc).output(
-            video_path_aft_proc, video_bitrate=compressed_bitrate
-        )
-        ffmpeg.run(stream, overwrite_output=True)
+        if requested_operation == "compress":
+            compress_video(video_path_bef_proc, video_path_aft_proc, compress_leverage)
+        elif requested_operation == "change_resolution":
+            change_video_resolution(
+                video_path_bef_proc, video_path_aft_proc, new_width, new_height
+            )
         send_status(client_socket)
     except Exception as e:
         print(e)
