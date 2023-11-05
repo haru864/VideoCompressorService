@@ -9,6 +9,18 @@ BUFFER_SIZE: int = 1024
 PREFIX_LENGTH: int = 4
 
 
+def recvall(sock, length):
+    """指定された長さのデータを受信するためのヘルパー関数"""
+    print(f"length -> {length}")
+    data = b""
+    while len(data) < length:
+        more = sock.recv(length - len(data))
+        if not more:
+            raise Exception("接続が中断されました。")
+        data += more
+    return data
+
+
 def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
@@ -44,22 +56,16 @@ def handle_client(client_socket: socket.socket) -> None:
     # BUG
     count = 0
     with open(video_path, "wb") as video_file:
-        # while True:
-        #     length_data: bytes = client_socket.recv(PREFIX_LENGTH)
-        #     (length,) = struct.unpack("!I", length_data)
-        #     count += length
-        #     if length == 0:
-        #         break
-        #     video_data: bytes = client_socket.recv(length)
-        #     video_file.write(video_data)
         while True:
-            data = client_socket.recv(1024)
-            if not data:
+            raw_length = recvall(client_socket, PREFIX_LENGTH)
+            # raw_length = client_socket.recv(PREFIX_LENGTH)
+            length = struct.unpack("!I", raw_length)[0]
+            if length == 0:
                 break
+            data = recvall(client_socket, length)
+            # data = client_socket.recv(length)
             video_file.write(data)
     print(count)
-    client_socket.close()
-    return
 
     # TODO 加工後の動画ファイルをクライアントに送信する
     try:

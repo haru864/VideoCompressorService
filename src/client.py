@@ -99,18 +99,18 @@ def main() -> None:
     count = 0
     with open(video_file_path, "rb") as video_file:
         while bytes_read := video_file.read(BUFFER_SIZE):
-            # data_length_prefix: bytes = struct.pack("!I", len(bytes_read))
-            # tcp_client.sendall(data_length_prefix + bytes_read)
+            length = len(bytes_read)
+            tcp_client.sendall(struct.pack("!I", length))
             tcp_client.sendall(bytes_read)
-            count += len(bytes_read)
-    # data_length_prefix: bytes = struct.pack("!I", 0)
-    # tcp_client.sendall(data_length_prefix)
+            count += length
+    data_length_prefix: bytes = struct.pack("!I", 0)
+    tcp_client.sendall(data_length_prefix)
     print(count)
 
-    # length_data: bytes = tcp_client.recv(PREFIX_LENGTH)
-    # (response_data_length,) = struct.unpack("!I", length_data)
-    # response_data: bytes = tcp_client.recv(response_data_length)
-    # print(response_data.decode())
+    length_data: bytes = tcp_client.recv(PREFIX_LENGTH)
+    (response_data_length,) = struct.unpack("!I", length_data)
+    response_data: bytes = tcp_client.recv(response_data_length)
+    print(response_data.decode())
 
     tcp_client.close()
 
