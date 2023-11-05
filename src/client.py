@@ -1,3 +1,4 @@
+import os
 import struct
 from typing import Any
 import socket
@@ -19,10 +20,12 @@ compress_level_to_bitrate_multiplier: dict[str, int] = {
 }
 
 
-def main():
-    server_address: str = input("server address: ")
+def main() -> None:
+    # server_address: str = input("server address: ")
+    server_address: str = "127.0.0.1"
     while True:
-        user_input: str = input("server port: ")
+        # user_input: str = input("server port: ")
+        user_input: str = "9001"
         try:
             server_port: int = int(user_input)
             break
@@ -79,15 +82,35 @@ def main():
     response_data_json: dict[str, int] = json.loads(response_data.decode())
     print(response_data_json)
 
-    # video_file_path: str = (
-    #     "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
-    # )
-    # with open(video_file_path, "rb") as video_file:
-    #     while True:
-    #         bytes_read = video_file.read(BUFFER_SIZE)
-    #         if not bytes_read:
-    #             break
-    #         tcp_client.sendall(bytes_read)
+    if response_data_json["status"] == 1:
+        print(response_data_json.get("error"))
+        tcp_client.close()
+        return None
+
+    # video_file_path: str = input("video file path: ")
+    video_file_path: str = (
+        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
+    )
+    video_file_name: str = os.path.basename(video_file_path)
+    video_file_name_data: bytes = video_file_name.encode()
+    data_length_prefix: bytes = struct.pack("!I", len(video_file_name_data))
+    tcp_client.sendall(data_length_prefix + video_file_name_data)
+
+    count = 0
+    with open(video_file_path, "rb") as video_file:
+        while bytes_read := video_file.read(BUFFER_SIZE):
+            # data_length_prefix: bytes = struct.pack("!I", len(bytes_read))
+            # tcp_client.sendall(data_length_prefix + bytes_read)
+            tcp_client.sendall(bytes_read)
+            count += len(bytes_read)
+    # data_length_prefix: bytes = struct.pack("!I", 0)
+    # tcp_client.sendall(data_length_prefix)
+    print(count)
+
+    # length_data: bytes = tcp_client.recv(PREFIX_LENGTH)
+    # (response_data_length,) = struct.unpack("!I", length_data)
+    # response_data: bytes = tcp_client.recv(response_data_length)
+    # print(response_data.decode())
 
     tcp_client.close()
 

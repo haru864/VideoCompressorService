@@ -32,3 +32,5 @@ sudo apt install ffmpeg
 
 # ライブラリ
 ffmpeg-python
+
+
