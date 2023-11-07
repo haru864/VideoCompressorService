@@ -14,7 +14,7 @@ def recvall(sock, length) -> bytes:
     while len(data) < length:
         more = sock.recv(length - len(data))
         if not more:
-            raise Exception("接続が中断されました。")
+            raise Exception("Connection interrupted")
         data += more
     return data
 
@@ -64,6 +64,11 @@ def change_video_aspect_ratio(
     ffmpeg.run(stream, overwrite_output=True)
 
 
+def convert_to_audio(input_video: str, output_audio: str):
+    stream = ffmpeg.input(input_video).output(output_audio, format="mp3")
+    ffmpeg.run(stream, overwrite_output=True)
+
+
 def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
@@ -90,14 +95,21 @@ def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
     video_file_name_data: bytes = client_socket.recv(length)
-    video_file_name: str = video_file_name_data.decode()
+    video_file_name, video_file_extension = os.path.splitext(
+        video_file_name_data.decode()
+    )
+    # print(video_file_name, video_file_extension)
     video_path_bef_proc: str = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
-        f"tmp/before_process/{video_file_name}",
+        f"tmp/before_process/{video_file_name}{video_file_extension}",
     )
     video_path_aft_proc: str = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
-        f"tmp/after_process/{video_file_name}",
+        f"tmp/after_process/{video_file_name}{video_file_extension}",
+    )
+    audio_path_aft_proc: str = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        f"tmp/after_process/{video_file_name}.mp3",
     )
 
     with open(video_path_bef_proc, "wb") as video_file:
@@ -120,6 +132,8 @@ def handle_client(client_socket: socket.socket) -> None:
             change_video_aspect_ratio(
                 video_path_bef_proc, video_path_aft_proc, new_aspect_ratio
             )
+        elif requested_operation == "convert_to_audio":
+            convert_to_audio(video_path_bef_proc, audio_path_aft_proc)
         send_status(client_socket)
     except Exception as e:
         print(e)

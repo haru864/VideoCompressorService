@@ -36,3 +36,8 @@ sudo apt install ffmpeg
 ffmpeg-python
 
 
+BUG
+・処理後の動画ファイルから音声が消える
+・オーディオ変換しても音声が消えて映像だけになる
+
+

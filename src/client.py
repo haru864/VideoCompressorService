@@ -35,7 +35,7 @@ def recvall(sock: socket.socket, length: int) -> bytes:
     while len(data) < length:
         more = sock.recv(length - len(data))
         if not more:
-            raise Exception("接続が中断されました。")
+            raise Exception("Connection interrupted")
         data += more
     return data
 
@@ -76,10 +76,14 @@ def main() -> None:
     # video_file_path: str = input("video file path: ")
     # output_dir_path: str = input("output path: ")
     video_file_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample.mp4"
+        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample_audio.mp4"
     )
-    output_file_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/output/sample.mp4"
+    video_file_name_with_extension: str = os.path.basename(video_file_path)
+    video_file_name, video_file_extension = os.path.splitext(
+        video_file_name_with_extension
+    )
+    output_dir_path: str = (
+        "/home/haru/project/Recursion/VideoCompressorService/test/output/"
     )
 
     request_data: dict[str, Any] = {}
@@ -138,6 +142,8 @@ def main() -> None:
                 break
             print("Aspect ratio is a 'positive integer/positive integer' format")
         request_data["aspect_ratio"] = new_aspect_ratio
+    elif request_data["operation"] == "convert_to_audio":
+        pass
     else:
         print("unimplemented operation")
         tcp_client.close()
@@ -155,8 +161,7 @@ def main() -> None:
         tcp_client.close()
         return None
 
-    video_file_name: str = os.path.basename(video_file_path)
-    video_file_name_data: bytes = video_file_name.encode()
+    video_file_name_data: bytes = video_file_name_with_extension.encode()
     data_length_prefix: bytes = struct.pack("!I", len(video_file_name_data))
     tcp_client.sendall(data_length_prefix + video_file_name_data)
 
@@ -174,6 +179,15 @@ def main() -> None:
         print(response_data_json.get("error"))
         tcp_client.close()
         return None
+
+    if request_data["operation"] == "convert_to_audio":
+        output_file_path: str = f"{output_dir_path}{video_file_name}.mp3"
+    elif request_data["operation"] == "trim_by_time_range":
+        output_file_path: str = f"{output_dir_path}{video_file_name}.gif"
+    else:
+        output_file_path: str = (
+            f"{output_dir_path}{video_file_name}{video_file_extension}"
+        )
 
     with open(output_file_path, "wb") as video_file:
         while True:
