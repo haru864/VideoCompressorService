@@ -4,6 +4,7 @@ from typing import Any
 import socket
 import json
 import ffmpeg
+import re
 
 BUFFER_SIZE: int = 1024
 PREFIX_LENGTH: int = 4
@@ -47,6 +48,13 @@ def displayResolution(video_file_path: str):
     print("Video Resolution")
     print(f" width: {width}")
     print(f" height: {height}")
+
+
+def displayAspectRatio(video_file_path: str):
+    probe: dict[Any, Any] = ffmpeg.probe(video_file_path)
+    video_info = next(s for s in probe["streams"] if s["codec_type"] == "video")
+    display_aspect_ratio: str = video_info["display_aspect_ratio"]
+    print(f"Display Aspect Ratio {display_aspect_ratio}")
 
 
 def main() -> None:
@@ -122,12 +130,19 @@ def main() -> None:
                 print(e)
         request_data["width"] = new_width
         request_data["height"] = new_height
+    elif request_data["operation"] == "change_aspect_ratio":
+        displayAspectRatio(video_file_path)
+        while new_aspect_ratio := input("new aspect ratio (w/h): "):
+            aspect_ratio_pattern = r"^\d+/\d+$"
+            if re.match(aspect_ratio_pattern, new_aspect_ratio):
+                break
+            print("Aspect ratio is a 'positive integer/positive integer' format")
+        request_data["aspect_ratio"] = new_aspect_ratio
     else:
         print("unimplemented operation")
         tcp_client.close()
         return
 
-    print(request_data)
     json_str: str = json.dumps(request_data)
     data: bytes = json_str.encode()
     data_length_prefix: bytes = struct.pack("!I", len(data))

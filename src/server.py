@@ -10,7 +10,6 @@ PREFIX_LENGTH: int = 4
 
 
 def recvall(sock, length) -> bytes:
-    print(f"length -> {length}")
     data = b""
     while len(data) < length:
         more = sock.recv(length - len(data))
@@ -54,13 +53,24 @@ def change_video_resolution(
     ffmpeg.run(stream, overwrite_output=True)
 
 
+def change_video_aspect_ratio(
+    input_video: str, output_video: str, new_aspect_ratio: str
+):
+    stream = (
+        ffmpeg.input(input_video)
+        .filter("setdar", new_aspect_ratio)
+        .output(output_video)
+    )
+    ffmpeg.run(stream, overwrite_output=True)
+
+
 def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
     data = client_socket.recv(length)
-    print(data.decode())
+    # print(data.decode())
     json_data = json.loads(data.decode())
-    print(json_data)
+    # print(json_data)
 
     try:
         requested_operation: str = json_data["operation"]
@@ -69,6 +79,8 @@ def handle_client(client_socket: socket.socket) -> None:
         elif requested_operation == "change_resolution":
             new_width: float = json_data["width"]
             new_height: float = json_data["height"]
+        elif requested_operation == "change_aspect_ratio":
+            new_aspect_ratio: str = json_data["aspect_ratio"]
         send_status(client_socket)
     except Exception as e:
         print(e)
@@ -104,6 +116,10 @@ def handle_client(client_socket: socket.socket) -> None:
             change_video_resolution(
                 video_path_bef_proc, video_path_aft_proc, new_width, new_height
             )
+        elif requested_operation == "change_aspect_ratio":
+            change_video_aspect_ratio(
+                video_path_bef_proc, video_path_aft_proc, new_aspect_ratio
+            )
         send_status(client_socket)
     except Exception as e:
         print(e)
@@ -129,7 +145,6 @@ def run_tcp_server() -> None:
     TCP_SERVER_ADDRESS: str = config["address"]
     TCP_SERVER_PORT: int = config["port"]
     CLIENT_CONN_TIME_OUT: int = config["client_connection_time_out"]
-
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((TCP_SERVER_ADDRESS, TCP_SERVER_PORT))
         server_socket.listen()
