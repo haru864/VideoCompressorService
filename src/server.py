@@ -45,23 +45,21 @@ def compress_video(
 def change_video_resolution(
     input_video: str, output_video: str, new_width: int, new_height: int
 ):
-    stream = (
-        ffmpeg.input(input_video)
-        .filter("scale", new_width, new_height)
-        .output(output_video)
-    )
-    ffmpeg.run(stream, overwrite_output=True)
+    input_stream = ffmpeg.input(input_video)
+    video = input_stream.filter("scale", new_width, new_height)
+    audio = input_stream.audio
+    out = ffmpeg.output(video, audio, output_video)
+    out.run(overwrite_output=True)
 
 
 def change_video_aspect_ratio(
     input_video: str, output_video: str, new_aspect_ratio: str
 ):
-    stream = (
-        ffmpeg.input(input_video)
-        .filter("setdar", new_aspect_ratio)
-        .output(output_video)
-    )
-    ffmpeg.run(stream, overwrite_output=True)
+    input_stream = ffmpeg.input(input_video)
+    video = input_stream.filter("setdar", new_aspect_ratio)
+    audio = input_stream.audio
+    out = ffmpeg.output(video, audio, output_video)
+    out.run(overwrite_output=True)
 
 
 def convert_to_audio(input_video: str, output_audio: str):
@@ -73,9 +71,7 @@ def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
     data = client_socket.recv(length)
-    # print(data.decode())
     json_data = json.loads(data.decode())
-    # print(json_data)
 
     try:
         requested_operation: str = json_data["operation"]
@@ -98,18 +94,9 @@ def handle_client(client_socket: socket.socket) -> None:
     video_file_name, video_file_extension = os.path.splitext(
         video_file_name_data.decode()
     )
-    # print(video_file_name, video_file_extension)
     video_path_bef_proc: str = os.path.join(
         os.path.dirname(os.path.dirname(__file__)),
         f"tmp/before_process/{video_file_name}{video_file_extension}",
-    )
-    video_path_aft_proc: str = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        f"tmp/after_process/{video_file_name}{video_file_extension}",
-    )
-    audio_path_aft_proc: str = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        f"tmp/after_process/{video_file_name}.mp3",
     )
 
     with open(video_path_bef_proc, "wb") as video_file:
@@ -121,25 +108,36 @@ def handle_client(client_socket: socket.socket) -> None:
             data = recvall(client_socket, length)
             video_file.write(data)
 
+    output_path_aft_proc: str = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        f"tmp/after_process/{video_file_name}",
+    )
+    if requested_operation == "convert_to_audio":
+        output_path_aft_proc += ".mp3"
+    elif requested_operation == "trim_by_time_range":
+        output_path_aft_proc += ".gif"
+    else:
+        output_path_aft_proc += ".mp4"
+
     try:
         if requested_operation == "compress":
-            compress_video(video_path_bef_proc, video_path_aft_proc, compress_leverage)
+            compress_video(video_path_bef_proc, output_path_aft_proc, compress_leverage)
         elif requested_operation == "change_resolution":
             change_video_resolution(
-                video_path_bef_proc, video_path_aft_proc, new_width, new_height
+                video_path_bef_proc, output_path_aft_proc, new_width, new_height
             )
         elif requested_operation == "change_aspect_ratio":
             change_video_aspect_ratio(
-                video_path_bef_proc, video_path_aft_proc, new_aspect_ratio
+                video_path_bef_proc, output_path_aft_proc, new_aspect_ratio
             )
         elif requested_operation == "convert_to_audio":
-            convert_to_audio(video_path_bef_proc, audio_path_aft_proc)
+            convert_to_audio(video_path_bef_proc, output_path_aft_proc)
         send_status(client_socket)
     except Exception as e:
         print(e)
         send_status(client_socket, str(e))
 
-    with open(video_path_aft_proc, "rb") as video_file:
+    with open(output_path_aft_proc, "rb") as video_file:
         while bytes_read := video_file.read(BUFFER_SIZE):
             length = len(bytes_read)
             client_socket.sendall(struct.pack("!I", length))

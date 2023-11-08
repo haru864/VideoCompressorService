@@ -75,9 +75,7 @@ def main() -> None:
     # TODO ファイルパスはユーザーが入力できるようにする
     # video_file_path: str = input("video file path: ")
     # output_dir_path: str = input("output path: ")
-    video_file_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/input/sample_audio.mp4"
-    )
+    video_file_path: str = "/home/haru/project/Recursion/VideoCompressorService/test/input/sample_audio.mp4"
     video_file_name_with_extension: str = os.path.basename(video_file_path)
     video_file_name, video_file_extension = os.path.splitext(
         video_file_name_with_extension
@@ -115,7 +113,7 @@ def main() -> None:
                 ):
                     print(f"1~{len(compress_level_to_bitrate_multiplier)} is available")
                     continue
-                request_data["compress_level"] = list(
+                request_data["compress_leverage"] = list(
                     compress_level_to_bitrate_multiplier.values()
                 )[user_input - 1]
                 break
