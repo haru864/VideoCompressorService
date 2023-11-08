@@ -142,6 +142,24 @@ def main() -> None:
         request_data["aspect_ratio"] = new_aspect_ratio
     elif request_data["operation"] == "convert_to_audio":
         pass
+    elif request_data["operation"] == "trim_by_time_range":
+        while True:
+            try:
+                start_seconds: int = int(input("start_seconds: "))
+                end_seconds: int = int(input("end_seconds: "))
+                if start_seconds < 0 or end_seconds < 0:
+                    raise Exception(
+                        "'start_seconds' and 'end_seconds' must be equal or greater than zero"
+                    )
+                if start_seconds > end_seconds:
+                    raise Exception(
+                        "'end_seconds' must be equal or greater than 'start_seconds'"
+                    )
+                break
+            except Exception as e:
+                print(e)
+        request_data["start_seconds"] = start_seconds
+        request_data["end_seconds"] = end_seconds
     else:
         print("unimplemented operation")
         tcp_client.close()
@@ -181,7 +199,7 @@ def main() -> None:
     if request_data["operation"] == "convert_to_audio":
         output_file_path: str = f"{output_dir_path}{video_file_name}.mp3"
     elif request_data["operation"] == "trim_by_time_range":
-        output_file_path: str = f"{output_dir_path}{video_file_name}.gif"
+        output_file_path: str = f"{output_dir_path}{video_file_name}.webm"
     else:
         output_file_path: str = (
             f"{output_dir_path}{video_file_name}{video_file_extension}"

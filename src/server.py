@@ -67,6 +67,18 @@ def convert_to_audio(input_video: str, output_audio: str):
     ffmpeg.run(stream, overwrite_output=True)
 
 
+# TODO テストする
+def trim_by_time_range(
+    input_video: str, output_audio: str, start_seconds: int, end_seconds: int
+):
+    input = ffmpeg.input(input_video)
+    video = input.trim(start=start_seconds, end=end_seconds).setpts("PTS-STARTPTS")
+    audio = input.filter("atrim", start=start_seconds, end=end_seconds).filter(
+        "asetpts", "PTS-STARTPTS"
+    )
+    ffmpeg.output(video, audio, output_audio, format="webm").run()
+
+
 def handle_client(client_socket: socket.socket) -> None:
     length_data = client_socket.recv(PREFIX_LENGTH)
     (length,) = struct.unpack("!I", length_data)
@@ -82,6 +94,11 @@ def handle_client(client_socket: socket.socket) -> None:
             new_height: float = json_data["height"]
         elif requested_operation == "change_aspect_ratio":
             new_aspect_ratio: str = json_data["aspect_ratio"]
+        elif requested_operation == "convert_to_audio":
+            pass
+        elif requested_operation == "trim_by_time_range":
+            start_seconds: int = json_data["start_seconds"]
+            end_seconds: int = json_data["end_seconds"]
         send_status(client_socket)
     except Exception as e:
         print(e)
@@ -115,7 +132,7 @@ def handle_client(client_socket: socket.socket) -> None:
     if requested_operation == "convert_to_audio":
         output_path_aft_proc += ".mp3"
     elif requested_operation == "trim_by_time_range":
-        output_path_aft_proc += ".gif"
+        output_path_aft_proc += ".webm"
     else:
         output_path_aft_proc += ".mp4"
 
@@ -132,6 +149,10 @@ def handle_client(client_socket: socket.socket) -> None:
             )
         elif requested_operation == "convert_to_audio":
             convert_to_audio(video_path_bef_proc, output_path_aft_proc)
+        elif requested_operation == "trim_by_time_range":
+            trim_by_time_range(
+                video_path_bef_proc, output_path_aft_proc, start_seconds, end_seconds
+            )
         send_status(client_socket)
     except Exception as e:
         print(e)
