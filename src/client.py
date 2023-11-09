@@ -22,6 +22,14 @@ compress_level_to_bitrate_multiplier: dict[str, int] = {
 }
 
 
+def is_mp4_file(file_path):
+    return os.path.isfile(file_path) and file_path.lower().endswith(".mp4")
+
+
+def is_valid_directory(dir_path):
+    return os.path.isdir(dir_path) and dir_path.endswith("/")
+
+
 def receive_status(sock: socket.socket) -> dict[str, Any]:
     length_data: bytes = sock.recv(PREFIX_LENGTH)
     (response_data_length,) = struct.unpack("!I", length_data)
@@ -58,11 +66,9 @@ def displayAspectRatio(video_file_path: str):
 
 
 def main() -> None:
-    # server_address: str = input("server address: ")
-    server_address: str = "127.0.0.1"
+    server_address: str = input("server address: ")
     while True:
-        # user_input: str = input("server port: ")
-        user_input: str = "9001"
+        user_input: str = input("server port: ")
         try:
             server_port: int = int(user_input)
             break
@@ -72,16 +78,17 @@ def main() -> None:
     tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_client.connect((server_address, server_port))
 
-    # TODO ファイルパスはユーザーが入力できるようにする
-    # video_file_path: str = input("video file path: ")
-    # output_dir_path: str = input("output path: ")
-    video_file_path: str = "/home/haru/project/Recursion/VideoCompressorService/test/input/sample_audio.mp4"
+    while video_file_path := input("video file path: "):
+        if is_mp4_file(video_file_path):
+            break
+        print("Set the path to any MP4 files that exist")
+    while output_dir_path := input("output path: "):
+        if is_valid_directory(output_dir_path):
+            break
+        print("Set the path of the existing directory with the '/' end")
     video_file_name_with_extension: str = os.path.basename(video_file_path)
     video_file_name, video_file_extension = os.path.splitext(
         video_file_name_with_extension
-    )
-    output_dir_path: str = (
-        "/home/haru/project/Recursion/VideoCompressorService/test/output/"
     )
 
     request_data: dict[str, Any] = {}
